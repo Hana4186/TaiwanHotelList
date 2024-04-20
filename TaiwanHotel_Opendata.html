@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TaiwanHotel_Opendata (分區數量統計)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+        crossorigin="anonymous"></script>
+    <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row vh-100">
+            <div class="col-md-3 bg-secondary">
+                <h3 class="text-center m-4 text-white">Taiwan Hotel List</h3>
+                <select class="form-select mt-3" aria-label="Default select example" id="cityList">
+                    <option selected disabled>Choose City</option>
+                    <option value="1">台北市</option>
+                    <option value="2">台中市</option>
+                    <option value="3">高雄市</option>
+                </select>
+                <ul class="list-group pt-3" id="regionList">
+                    <!-- <li class="list-group-item">
+                        <div class="h4 fw-bolder d-flex">
+                            台北市中山區
+                            <span class="badge text-bg-danger ms-auto">100</span>
+                        </div>
+                    </li> -->
+                </ul>
+            </div>
+            <div class="col-md-9">
+                <div class="row justify-content-center pt-5">
+                    <div class="col-md-8">
+                        <canvas id="myChart"></canvas>
+                    </div>
+                </div>
+                <div class="row" id="hotel_list">
+                    <div class="col-md-4 col-lg-3 col-xxl-2 mt-3">
+                        <!-- <div class="card">
+                            <img src="https://taiwan.taiwanstay.net.tw/twpic/15545.jpg" class="card-img-top" alt="...">
+                            <div class="card-body">
+                                <h5 class="card-title fw-bolder">飯店名稱</h5>
+                                <p class="h6 card-text fw-bolder">地址: XXXXXXXX</p>
+                                <p class="h6 card-text fw-bolder">電話: XXXXXXXX</p>
+                                <a href="#" class="btn btn-outline-danger w-100 mt-auto">Go Map</a>
+                            </div>
+                        </div> -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- /////////////////////////////////////////////////////////////////// -->
+    <script>
+        // 共用變數要設在外面，下面城市如果要用這個變數直接用即可，不能再加一個同名var值，會洗掉一開始的宣告
+        var regionTitle = [];
+        var counter = [];
+        var regionData = [];
+
+        var selectCity;  //儲存所選擇的縣市
+        var cityCounty = [];  //儲存所有縣市資料
+
+        //chartjs
+        const ctx = document.getElementById('myChart');
+
+        var chart = new Chart(ctx, {
+            type: 'bar', //line, pie
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Number of the hotel in each area',
+                    data: [],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        /////////////////////////////////////////////////////////////////
+        $(function () {
+            $.ajax({
+                //台灣縣市別資料
+                type: "GET",
+                url: "./js/CityCountyData.json",
+                dataType: "json",
+                async: false,
+                success: function (data) {
+                    cityCounty = data;
+                    console.log(cityCounty);
+
+                    $("#cityList").empty();
+                    $("#cityList").append('<option selected disabled>Choose City</option>');
+                    cityCounty.forEach(function (item) {
+                        var citylistHTML = '<option value="' + item.CityName + '">' + item.CityName + '</option>';
+                        $("#cityList").append(citylistHTML);
+                    });
+                },
+                error: function () {
+                    alert("error-js/CityCountyData.json");
+                }
+            });
+
+
+
+            //監聽縣市選單select
+            $("#cityList").change(function () {
+                console.log($(this).val());
+                selectCity = $(this).val();
+
+                $.ajax({
+                    type: "GET",
+                    url: "./js/hotel_C_f.json",
+                    dataType: "json",
+                    async: false,
+                    success: showdata,
+                    error: function () {
+                        alert("error-./js/hotel_C_f.json");
+                    }
+                });
+            });
+        });
+
+        function showdata(data) {
+            console.log(data.XML_Head.Infos.Info);
+
+            //資料重購
+            //思考如何讓原始資料變成一個友善的資料？提高做事效率
+            // 資料先重新歸零一次
+            regionTitle = [];
+            counter = [];
+            regionData = [];
+            /*
+            Tip：
+            使用 regionData = []; 时，它会在当前作用域查找是否已经存在名为 regionData 的变量，如果存在就直接赋值，如果不存在则会创建一个全局变量
+            切記不能用var在這邊再次宣告，這會洗掉一開始的值
+            */
+
+            data.XML_Head.Infos.Info.forEach(function (item, key) {
+                if (item.Region == selectCity) {
+                    var getRegion = item.Town;
+                    if (getRegion == "") {
+                        getRegion = "未分類";
+                    }
+                    if (counter[getRegion] == undefined) {
+                        counter[getRegion] = regionData.length;
+                        regionData.push(new Array());
+                        regionTitle[counter[getRegion]] = getRegion;
+                    }
+                    regionData[counter[getRegion]].push(item);
+                }
+            });
+
+            console.log(regionTitle);
+            console.log(counter);
+            console.log(regionData);
+            // console.log(regionData[0]);
+
+            //更新chartjs
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            regionTitle.forEach(function (item, key) {
+                chart.data.labels.push(item);
+                chart.data.datasets[0].data.push(regionData[key].length);
+                chart.update();
+            });
+            // chart.data.labels.push("南投縣");
+            // chart.data.datasets[0].data.push(60);
+            // chart.update();
+
+
+            //產生左側選單
+            $("#regionList").empty();
+            regionTitle.forEach(function (item, key) {
+                console.log(item);
+                var strHTML = '<li class="list-group-item" data-id="' + key + '" id="myRegion"><div class="h5 fw-bolder d-flex ">' + item + '<span class="badge text-bg-danger ms-auto">' + regionData[key].length + '</span></div></li>';
+                $("#regionList").append(strHTML);
+            });
+
+            //選單監聽
+            $("#regionList #myRegion").on('click', function () {
+                var drawPage = $(this).data("id");
+                console.log($(this).data("id"));
+                drawView(drawPage);
+            });
+
+            drawView(0);
+        }
+
+        function drawView(page) {
+            $("#hotel_list").empty();
+            regionData[page].forEach(function (item, key) {
+                if (item.Picture1 == "") {
+                    item.Picture1 = './img/Designbolts-Free-Multimedia-Photo.512.png';
+                }
+                var strHTML =
+                    // '<div class="col-md-4 col-lg-3 mt-4"><div class="card h-100" ><div class="card-body shadow shadow-lg d-flex flex-column"><div class="h4 text-bg-success text-center fw-bolder rounded rounded-3 p-2">' + item.name + '</div><div class="h5">Address：<br>' + item.display_addr + '</div><div class="h5">TEL：' + item.tel + '</div><button class="btn btn-outline-danger w-100 mt-auto">map</button></div>';
+                    '<div class="col-md-4 col-lg-3 col-xxl-3 mt-3"><div class="card h-100"><img src="' + item.Picture1 + '" class="img-fluid card-img-top bg-info h-50" alt="..."><div class="card-body d-flex flex-column"><h5 class="card-title"><b>' + item.Name + '</b></h5><p class="h6 card-text"><b>Address: </b><br>' + item.Add + '</p><p class="h6 card-text"><b>TEL: </b>' + item.Tel + '</p><a href="#" class="btn btn-primary mt-auto">Go Map</a></div></div></div>';
+
+                $("#hotel_list").append(strHTML);
+            });
+            console.log("Final regionData:", regionData);
+        }
+    </script>
+</body>
+
+</html>
